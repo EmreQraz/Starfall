@@ -4,6 +4,7 @@ using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
+using static Starfall.EditorTools.UiBuildUtils;
 
 namespace Starfall.EditorTools
 {
@@ -17,17 +18,12 @@ namespace Starfall.EditorTools
         private const string HUD_TEXTURE_PATH =
             "Assets/Creepy_Cat/3D Scifi Kit Starter Kit_HD/Textures/Others/HUD_Screen_01.png";
 
-        private static readonly Vector2 REFERENCE_RESOLUTION = new Vector2(1920, 1080);
         private static readonly Vector2 WINDOW_SIZE = new Vector2(1180, 820);
         private const float OPTION_HEIGHT = 74f;
         private const float BACKDROP_TEXTURE_ALPHA = 0.07f;
 
-        private static readonly Color CYAN = new Color(0f, 0.9f, 1f, 1f);
-        private static readonly Color ORANGE = new Color(1f, 0.62f, 0.1f, 1f);
-        private static readonly Color NAVY = new Color(0.03f, 0.08f, 0.13f, 0.97f);
         private static readonly Color DIM = new Color(0f, 0.02f, 0.05f, 0.75f);
-        private static readonly Color TEXT = new Color(0.85f, 0.95f, 1f, 1f);
-        private static readonly Color OPTION_BG = new Color(0.05f, 0.16f, 0.22f, 0.9f);
+        private static readonly Color OPTION_BG = PANEL_BG;
 
         [MenuItem("Starfall/Build HUD Prefab")]
         public static void Build()
@@ -222,68 +218,6 @@ namespace Starfall.EditorTools
             Stretch(label.rectTransform, 22);
 
             return new QuestionPanelOption { Button = button, Label = label, Background = background };
-        }
-
-        private static RectTransform CreateRect(string name, Transform parent)
-        {
-            var go = new GameObject(name, typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            return (RectTransform)go.transform;
-        }
-
-        private static Image CreateImage(string name, Transform parent, Color color)
-        {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
-            go.transform.SetParent(parent, false);
-            var image = go.GetComponent<Image>();
-            image.color = color;
-            return image;
-        }
-
-        private static TextMeshProUGUI CreateText(string name, Transform parent, string text, float size,
-            Color color, TextAlignmentOptions alignment)
-        {
-            var go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
-            go.transform.SetParent(parent, false);
-            var tmp = go.GetComponent<TextMeshProUGUI>();
-            tmp.text = text;
-            tmp.fontSize = size;
-            tmp.color = color;
-            tmp.alignment = alignment;
-            tmp.textWrappingMode = TextWrappingModes.Normal;
-            tmp.richText = true;
-            tmp.raycastTarget = false;
-            return tmp;
-        }
-
-        private static void AddOutline(GameObject go, Color color)
-        {
-            var outline = go.AddComponent<Outline>();
-            outline.effectColor = color;
-            outline.effectDistance = new Vector2(2, -2);
-        }
-
-        private static void AddLayout(GameObject go, float preferredHeight, bool flexible = false, bool flexibleWidth = false)
-        {
-            if (!go.TryGetComponent(out LayoutElement element)) element = go.AddComponent<LayoutElement>();
-            element.preferredHeight = preferredHeight;
-            if (flexible) element.flexibleHeight = 1;
-            if (flexibleWidth) element.flexibleWidth = 1;
-        }
-
-        private static void Stretch(RectTransform rect, float padding = 0)
-        {
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = new Vector2(padding, padding);
-            rect.offsetMax = new Vector2(-padding, -padding);
-        }
-
-        private static void Center(RectTransform rect, Vector2 size)
-        {
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = Vector2.zero;
-            rect.sizeDelta = size;
         }
     }
 }

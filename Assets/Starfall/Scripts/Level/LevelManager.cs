@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using Starfall.Devices;
+using Starfall.UI;
 using UnityEngine;
 using UnityEngine.Events;
-using UnityEngine.SceneManagement;
 
 namespace Starfall.Level
 {
@@ -88,7 +88,7 @@ namespace Starfall.Level
             }
 
             isLoading = true;
-            SceneManager.LoadScene(nextSceneName);
+            ScreenFader.LoadScene(nextSceneName);
         }
     }
 }
