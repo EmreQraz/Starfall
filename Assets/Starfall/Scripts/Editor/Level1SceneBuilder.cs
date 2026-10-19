@@ -244,6 +244,9 @@ namespace Starfall.EditorTools
             var repairedGlow = CreatePointLight("RepairedGlow", panel.transform, panel.transform.position + Vector3.left * 0.4f,
                 REPAIRED_GREEN, 1.5f, 3f);
             repairedGlow.gameObject.SetActive(false);
+            brokenGlow.gameObject.AddComponent<FlickeringLight>();
+            var malfunction = MalfunctionBuilder.Add(panel.transform, new Vector3(17.85f, 2.05f, 13.05f), Vector3.left,
+                new Vector3(17.8f, 2.45f, 13.3f), addFaultLight: false);
 
             var device = panel.AddComponent<RepairableDevice>();
             SetFields(device, so =>
@@ -253,7 +256,7 @@ namespace Starfall.EditorTools
                 so.FindProperty("doorToOpen").objectReferenceValue = cabinDoor;
                 SetObjectArray(so.FindProperty("activateOnRepair"),
                     corridorLights.Append(repairedGlow.gameObject).Cast<Object>().ToList());
-                SetObjectArray(so.FindProperty("deactivateOnRepair"), new Object[] { brokenGlow.gameObject });
+                SetObjectArray(so.FindProperty("deactivateOnRepair"), new Object[] { brokenGlow.gameObject, malfunction });
             });
             return device;
         }
@@ -261,12 +264,20 @@ namespace Starfall.EditorTools
         private static RepairableDevice BuildTerminal(GameObject console, List<GameObject> exitLights)
         {
             AddBoundsCollider(console);
+            var malfunction = MalfunctionBuilder.Add(console.transform, new Vector3(40.5f, 2.4f, 10.45f), Vector3.back,
+                new Vector3(41f, 3.3f, 10.4f), addFaultLight: true);
+            var repairedGlow = CreatePointLight("RepairedGlow", console.transform, new Vector3(41f, 2.2f, 10f),
+                REPAIRED_GREEN, 1.5f, 4f);
+            repairedGlow.gameObject.SetActive(false);
+
             var device = console.AddComponent<RepairableDevice>();
             SetFields(device, so =>
             {
                 so.FindProperty("deviceName").stringValue = "corridor terminal";
                 SetObjectArray(so.FindProperty("questions"), new Object[] { Question("L1_D2_Q3_Assignment"), Question("L1_D2_Q4_Float") });
-                SetObjectArray(so.FindProperty("activateOnRepair"), exitLights.Cast<Object>().ToList());
+                SetObjectArray(so.FindProperty("activateOnRepair"),
+                    exitLights.Append(repairedGlow.gameObject).Cast<Object>().ToList());
+                SetObjectArray(so.FindProperty("deactivateOnRepair"), new Object[] { malfunction });
             });
             return device;
         }
