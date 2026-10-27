@@ -29,23 +29,28 @@ Assets/Starfall/
     Interaction/  IInteractable, PlayerInteractor, PlayerControlLock
     Questions/    QuestionData (ScriptableObject)
     Devices/      RepairableDevice, Door, FlickeringLight, SparkEmitter
+    Combat/       Health, Weapon, WeaponPickup, AlienEnemy, AlienAnimator, WaveSpawner, PlayerDeath, ProceduralSfx
     Level/        LevelManager, LevelExitTrigger
     Settings/     GameSettings, MusicTrack, SfxVolumeApplier, MouseSensitivityApplier
     UI/           QuestionPanel, InteractionPromptUI, ScreenFader, MainMenu, SettingsPanel,
-                  IntroSlideshow, KenBurns, BlinkingGraphic
-    Editor/       Scene/prefab builders + UiBuildUtils, SceneBuildUtils
-  Data/Questions/ L1_D1_Q1_IfElse, L1_D1_Q2_And, L1_D2_Q3_Assignment, L1_D2_Q4_Float
-  Scenes/         MainMenu, Intro, Level1, Level2 (placeholder)
+                  IntroSlideshow, KenBurns, BlinkingGraphic, CombatHud
+    Editor/       Scene/prefab builders + UiBuildUtils, SceneBuildUtils, StationBuildUtils
+  Data/Questions/ L1_D1_Q1_IfElse, L1_D1_Q2_And, L1_D2_Q3_Assignment, L1_D2_Q4_Float,
+                  TR_D1_Q1_Equality, TR_D1_Q2_WhileLoop
+  Scenes/         MainMenu, Intro, Level1, Transit (+ Transit_NavMesh.asset), Level2 (placeholder)
   Prefabs/UI/     StarfallHUD.prefab
+  Prefabs/Combat/ Alien.prefab
   Art/Space/      Blender-made planet, moon, station, asteroids (SM_*.fbx, T_*.png, materials)
+  Art/Combat/     Blender-made SM_Alien.fbx (flat jointed parts) and SM_Blaster.fbx, materials
   Art/Intro/      Intro_01..06.png (Higgsfield, 16:9)
   Art/UI/         T_ShadeGradient.png
   Art/FX/         M_Sparks, M_Smoke
   Settings/       Level1_PostFX.asset (bloom, ACES, vignette)
 ArtSource/StarfallSpace.blend   source for the space models
+ArtSource/StarfallCombat.blend  source for the alien and the blaster
 ```
 
-Build order (`SceneBuildUtils.UpdateBuildSettings`): MainMenu → Intro → Level1 → Level2.
+Build order (`SceneBuildUtils.UpdateBuildSettings`): MainMenu → Intro → Level1 → Transit → Level2.
 
 ## Game flow
 
@@ -54,7 +59,9 @@ Build order (`SceneBuildUtils.UpdateBuildSettings`): MainMenu → Intro → Leve
 2. **Intro**: 6 illustrated slides with a crossfade (1.6 s) and a typewriter caption. Space/Enter/click
    continues, Esc skips, then it loads Level1.
 3. **Level1**: repair 2 devices, then go through the exit door.
-4. **Level2**: placeholder ("Coming soon").
+4. **Transit**: unlock the weapon locker (2 questions), pick up the dropped blaster (E), fight 3 alien waves,
+   then go through the exit door.
+5. **Level2**: placeholder ("Coming soon").
 
 Scene changes always go through `ScreenFader.LoadScene(name)`, which fades both picture and audio.
 
@@ -105,6 +112,37 @@ Scene changes always go through `ScreenFader.LoadScene(name)`, which fades both 
 - **Space backdrop**: panoramic starfield skybox, plus a planet, moon, station and spinning asteroids
   visible through the portholes (layer `SpaceBackdrop`).
 
+## Transit (alien attack between Level 1 and Level 2)
+
+- Layout: armory x 0..18 (weapon locker on the west wall) → armory door (x=18) → corridor x 20..62
+  with cover crates and red alarm lights → exit door (x=62) → vestibule with the Level2 trigger.
+  Aliens spawn at the far end of the corridor.
+- **Weapon locker**: a `RepairableDevice` with `actionVerb = "Unlock"` (questions TR_D1_Q1 equality `==`,
+  TR_D1_Q2 `while` loop). Repairing it opens the armory door, and `OnRepaired` calls `WeaponPickup.Drop`. The blaster
+  then falls out of the locker with physics (Rigidbody, clank sound, cyan glow) and lands about 1.5 m in front of it.
+  Picking it up with E (`WeaponPickup` is an `IInteractable`) calls `Weapon.Equip`, and its `OnPickedUp` starts the waves,
+  so the player is never attacked unarmed.
+- **Waves**: `WaveSpawner` spawns 3 / 5 / 7 aliens. The next wave starts when the current one is dead, and
+  each cleared wave heals the player by 30. `LevelManager.waveSpawners` keeps the exit closed until the waves
+  are cleared; `activateOnComplete` turns on the exit lights.
+- **Player**: `Health` (100) + `PlayerDeath` on the PlayerCapsule. At 0 HP the death screen shows and the
+  scene restarts. `PlayerControlLock.alsoDisable` disables the weapon while a panel is open.
+- **Weapon**: hitscan blaster view model under the camera (34 damage, 16 rounds, R to reload, hold left
+  click to fire). It has a beam, muzzle flash, impact sparks and a recoil kick. Transit sets the Cinemachine lens near clip to
+  0.05 so the view model is not clipped.
+- **Aliens**: `AlienEnemy` handles behaviour. It screeches on spawn, chases the player on the NavMesh, weaves
+  from side to side while far away, dashes now and then, and claws with a wind-up. Each alien has its own speed.
+  `AlienAnimator` animates the jointed model in code (no rig): the walk cycle follows the distance
+  travelled, the body bobs, leans and rolls into turns, the head tracks the player and twitches, plus
+  attack, hit and death-collapse poses. The FBX holds the body parts flat (each part's origin is its joint),
+  and `CombatAssetBuilder` parents them into the skeleton, because the FBX axis baking breaks nested hierarchies.
+- **NavMesh**: baked in the builder (`NavMeshSurface`, physics colliders, door leaves ignored) and saved
+  to `Transit_NavMesh.asset`. It is baked before the player is created.
+- **HUD**: `CombatHud` lives in StarfallHUD (health bar, ammo, wave banners, red damage flash, death
+  screen). It hides itself where the player has no `Health` (Level 1). `StarfallHudBuilder.UpdateCombatHud`
+  adds it to the existing prefab without rebuilding it, so references from other scenes keep working.
+- Combat sounds are generated in code (`ProceduralSfx`).
+
 ### Settings and audio
 - `GameSettings`: static wrapper around PlayerPrefs (volumes, sensitivity 0.2–3, fullscreen) with a
   `Changed` event. It sets `AudioListener.volume`.
@@ -121,8 +159,12 @@ The scenes are **generated by code**:
 | Build Menu And Intro Scenes | `MenuSceneBuilder` |
 | Build HUD Prefab | `StarfallHudBuilder` |
 | Setup Space Materials | `SpaceBackdropBuilder` |
+| Build Transit Scene | `TransitSceneBuilder` (also runs the two below) |
+| Build Combat Assets | `CombatAssetBuilder` (materials, Alien prefab) |
+| Update Combat HUD In Prefab | `StarfallHudBuilder.UpdateCombatHud` |
 
-The Level2 placeholder is built by `PlaceholderSceneBuilder`.
+The Level2 placeholder is built by `PlaceholderSceneBuilder`. The shared station pieces (doors, player rig,
+post-FX) live in `StationBuildUtils`.
 
 ⚠️ **Re-running a builder overwrites the scene and discards manual edits made in the Unity editor.**
 Change the builder code instead, or stop using the builder for that scene. `BuildSceneAt` refuses to
@@ -157,10 +199,14 @@ run if the open scene has unsaved changes.
 - Automated input uses a virtual keyboard (`InputSystem.QueueStateEvent`) with `cursorInputForLook = false`,
   so that real mouse/keyboard input doesn't interfere.
 - Restore `runInBackground` and `editorInputBehaviorInPlayMode` after tests.
+- Combat tests: add a virtual `Mouse` (`InputSystem.AddDevice<Mouse>`), aim the PlayerCapsule from an
+  `EditorApplication.update` callback and queue `MouseState` button presses. Remove the device afterwards.
 
 ## Known gaps
 
 - The procedural spark crackle is basic. A real SFX would be better.
 - The kit's console screens render white.
 - There is no pause menu yet.
+- The QuestionPanel's last button says "Finish repair" even on the weapon locker ("Unlock").
+- Combat difficulty (waves, damage, speeds) has only been tested with an automated aimer, not a person.
 - Level 2 is a placeholder.

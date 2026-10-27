@@ -115,7 +115,7 @@ namespace Starfall.EditorTools
             fade.color = FadeOut(Color.white, Color.white);
         }
 
-        private static ParticleSystem CreateParticleSystem(string name, Transform parent, Material material)
+        internal static ParticleSystem CreateParticleSystem(string name, Transform parent, Material material)
         {
             var go = new GameObject(name, typeof(ParticleSystem));
             go.transform.SetParent(parent, false);
@@ -129,7 +129,7 @@ namespace Starfall.EditorTools
             return ps;
         }
 
-        private static ParticleSystem.MinMaxGradient FadeOut(Color start, Color end)
+        internal static ParticleSystem.MinMaxGradient FadeOut(Color start, Color end)
         {
             var gradient = new Gradient();
             gradient.SetKeys(
@@ -158,10 +158,13 @@ namespace Starfall.EditorTools
             UiBuildUtils.Stretch(text.rectTransform);
         }
 
-        private static Material SparkMaterial()
+        private static Material SparkMaterial() => AdditiveMaterial("M_Sparks", SPARK_HDR_TINT);
+
+        /// <summary>Additive glow particle material; an HDR tint above 1 makes bloom pick it up.</summary>
+        internal static Material AdditiveMaterial(string name, Color hdrTint)
         {
-            var material = ParticleMaterial("M_Sparks", "Glow.png");
-            material.SetColor("_BaseColor", SPARK_HDR_TINT);
+            var material = ParticleMaterial(name, "Glow.png");
+            material.SetColor("_BaseColor", hdrTint);
             material.SetFloat("_Blend", 2f);   // additive
             material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
             material.SetFloat("_DstBlend", (float)BlendMode.One);

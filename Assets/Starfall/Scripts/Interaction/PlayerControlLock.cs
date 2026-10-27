@@ -12,6 +12,8 @@ namespace Starfall.Interaction
         [SerializeField] private FirstPersonController controller;
         [SerializeField] private StarterAssetsInputs inputs;
         [SerializeField] private PlayerInteractor interactor;
+        [Tooltip("Other player behaviours (e.g. the weapon) disabled while locked.")]
+        [SerializeField] private Behaviour[] alsoDisable = System.Array.Empty<Behaviour>();
 
         public bool IsLocked { get; private set; }
 
@@ -38,6 +40,10 @@ namespace Starfall.Interaction
         {
             if (controller != null) controller.enabled = isEnabled;
             if (interactor != null) interactor.enabled = isEnabled;
+            foreach (var behaviour in alsoDisable)
+            {
+                if (behaviour != null) behaviour.enabled = isEnabled;
+            }
 
             if (inputs != null)
             {

@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 using static Starfall.EditorTools.UiBuildUtils;
+using static Starfall.EditorTools.SceneBuildUtils;
 
 namespace Starfall.EditorTools
 {
@@ -21,6 +22,9 @@ namespace Starfall.EditorTools
         private static readonly Vector2 WINDOW_SIZE = new Vector2(1180, 820);
         private const float OPTION_HEIGHT = 74f;
         private const float BACKDROP_TEXTURE_ALPHA = 0.07f;
+        private static readonly Vector2 HEALTH_PANEL_SIZE = new Vector2(460, 96);
+        private static readonly Vector2 AMMO_PANEL_SIZE = new Vector2(260, 110);
+        private static readonly Vector2 BANNER_SIZE = new Vector2(900, 130);
 
         private static readonly Color DIM = new Color(0f, 0.02f, 0.05f, 0.75f);
         private static readonly Color OPTION_BG = PANEL_BG;
@@ -41,6 +45,7 @@ namespace Starfall.EditorTools
                 scaler.matchWidthOrHeight = 0.5f;
 
                 BuildCrosshair(canvasGo.transform);
+                BuildCombatHud(canvasGo.transform);
                 BuildPrompt(canvasGo.transform);
                 BuildQuestionPanel(canvasGo.transform);
 
@@ -55,11 +60,127 @@ namespace Starfall.EditorTools
             }
         }
 
+        /// <summary>
+        /// Adds (or replaces) the combat HUD inside the existing prefab without rebuilding the rest,
+        /// so scenes that reference objects inside the prefab keep their links.
+        /// </summary>
+        [MenuItem("Starfall/Update Combat HUD In Prefab")]
+        public static void UpdateCombatHud()
+        {
+            var contents = PrefabUtility.LoadPrefabContents(PREFAB_PATH);
+            try
+            {
+                var old = contents.transform.Find("CombatHud");
+                if (old != null) Object.DestroyImmediate(old.gameObject);
+
+                BuildCombatHud(contents.transform);
+                var crosshair = contents.transform.Find("Crosshair");
+                int index = crosshair != null ? crosshair.GetSiblingIndex() + 1 : 0;
+                contents.transform.Find("CombatHud").SetSiblingIndex(index);
+
+                PrefabUtility.SaveAsPrefabAsset(contents, PREFAB_PATH, out bool success);
+                if (!success) throw new System.InvalidOperationException($"Failed to save {PREFAB_PATH}");
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
+        }
+
         private static void BuildCrosshair(Transform parent)
         {
             var dot = CreateImage("Crosshair", parent, new Color(1f, 1f, 1f, 0.6f));
             Center(dot.rectTransform, new Vector2(6, 6));
             dot.raycastTarget = false;
+        }
+
+        /// <summary>Health bar (bottom left), ammo (bottom right), wave banner, damage flash and death screen.</summary>
+        private static void BuildCombatHud(Transform parent)
+        {
+            var holder = CreateRect("CombatHud", parent);
+            Stretch(holder);
+            var hud = holder.gameObject.AddComponent<CombatHud>();
+
+            var flash = CreateImage("DamageFlash", holder, new Color(0.8f, 0f, 0f, 0f));
+            Stretch(flash.rectTransform);
+            flash.raycastTarget = false;
+
+            // Health: label, bar frame with a left-anchored fill, number.
+            var healthRoot = CreateImage("Health", holder, PANEL_BG);
+            Corner(healthRoot.rectTransform, new Vector2(0f, 0f), new Vector2(40f, 40f), HEALTH_PANEL_SIZE);
+            AddOutline(healthRoot.gameObject, new Color(CYAN.r, CYAN.g, CYAN.b, 0.5f));
+            var label = CreateText("Label", healthRoot.transform, "VITALS", 22, CYAN, TextAlignmentOptions.TopLeft);
+            label.characterSpacing = 6f;
+            SetAnchors(label.rectTransform, new Vector2(0f, 0.5f), Vector2.one);
+            label.rectTransform.offsetMin = new Vector2(16f, 0f);
+            label.rectTransform.offsetMax = new Vector2(-16f, -8f);
+
+            var track = CreateImage("Track", healthRoot.transform, new Color(0f, 0f, 0f, 0.6f));
+            SetAnchors(track.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0.5f));
+            track.rectTransform.offsetMin = new Vector2(16f, 14f);
+            track.rectTransform.offsetMax = new Vector2(-96f, -2f);
+            var fill = CreateImage("Fill", track.transform, new Color(0.3f, 1f, 0.5f));
+            SetAnchors(fill.rectTransform, Vector2.zero, Vector2.one);
+            fill.raycastTarget = false;
+
+            var number = CreateText("Value", healthRoot.transform, "100", 40, TEXT, TextAlignmentOptions.MidlineRight);
+            number.fontStyle = FontStyles.Bold;
+            SetAnchors(number.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0.62f));
+            number.rectTransform.offsetMin = new Vector2(-90f, 4f);
+            number.rectTransform.offsetMax = new Vector2(-16f, 0f);
+
+            // Ammo
+            var ammoRoot = CreateImage("Ammo", holder, PANEL_BG);
+            Corner(ammoRoot.rectTransform, new Vector2(1f, 0f), new Vector2(-40f, 40f), AMMO_PANEL_SIZE);
+            AddOutline(ammoRoot.gameObject, new Color(ORANGE.r, ORANGE.g, ORANGE.b, 0.6f));
+            var ammoLabel = CreateText("Label", ammoRoot.transform, "BLASTER", 22, ORANGE, TextAlignmentOptions.TopLeft);
+            ammoLabel.characterSpacing = 6f;
+            Stretch(ammoLabel.rectTransform, 12);
+            var ammoText = CreateText("Value", ammoRoot.transform, "16 / 16", 52, TEXT, TextAlignmentOptions.BottomRight);
+            ammoText.fontStyle = FontStyles.Bold;
+            Stretch(ammoText.rectTransform, 12);
+
+            // Banner
+            var bannerBox = CreateImage("Banner", holder, new Color(NAVY.r, NAVY.g, NAVY.b, 0.85f));
+            bannerBox.rectTransform.anchorMin = bannerBox.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+            bannerBox.rectTransform.pivot = new Vector2(0.5f, 1f);
+            bannerBox.rectTransform.anchoredPosition = new Vector2(0f, -140f);
+            bannerBox.rectTransform.sizeDelta = BANNER_SIZE;
+            AddOutline(bannerBox.gameObject, CYAN);
+            var bannerGroup = bannerBox.gameObject.AddComponent<CanvasGroup>();
+            bannerGroup.blocksRaycasts = false;
+            var bannerText = CreateText("Text", bannerBox.transform, "WAVE 1 / 3", 40, TEXT, TextAlignmentOptions.Center);
+            bannerText.fontStyle = FontStyles.Bold;
+            Stretch(bannerText.rectTransform, 10);
+
+            // Death screen
+            var death = CreateImage("DeathScreen", holder, new Color(0.15f, 0f, 0f, 0.85f));
+            Stretch(death.rectTransform);
+            var deathText = CreateText("Text", death.transform,
+                "<color=#FF5C5C>SYSTEMS CRITICAL</color>\n<size=40%>Vital signs lost. Restarting sector...</size>",
+                96, TEXT, TextAlignmentOptions.Center);
+            deathText.fontStyle = FontStyles.Bold;
+            Stretch(deathText.rectTransform);
+
+            SetFields(hud, so =>
+            {
+                so.FindProperty("healthRoot").objectReferenceValue = healthRoot.gameObject;
+                so.FindProperty("healthFill").objectReferenceValue = fill;
+                so.FindProperty("healthText").objectReferenceValue = number;
+                so.FindProperty("ammoRoot").objectReferenceValue = ammoRoot.gameObject;
+                so.FindProperty("ammoText").objectReferenceValue = ammoText;
+                so.FindProperty("banner").objectReferenceValue = bannerGroup;
+                so.FindProperty("bannerText").objectReferenceValue = bannerText;
+                so.FindProperty("damageFlash").objectReferenceValue = flash;
+                so.FindProperty("deathScreen").objectReferenceValue = death.gameObject;
+            });
+        }
+
+        private static void Corner(RectTransform rect, Vector2 corner, Vector2 offset, Vector2 size)
+        {
+            rect.anchorMin = rect.anchorMax = rect.pivot = corner;
+            rect.anchoredPosition = offset;
+            rect.sizeDelta = size;
         }
 
         private static void BuildPrompt(Transform parent)

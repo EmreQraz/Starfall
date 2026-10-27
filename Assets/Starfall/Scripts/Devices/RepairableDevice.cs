@@ -21,6 +21,8 @@ namespace Starfall.Devices
     public class RepairableDevice : MonoBehaviour, IInteractable
     {
         [SerializeField] private string deviceName = "panel";
+        [Tooltip("Verb shown in the prompt and panel title, e.g. \"Repair\" or \"Unlock\".")]
+        [SerializeField] private string actionVerb = "Repair";
         [SerializeField] private List<QuestionData> questions = new List<QuestionData>();
 
         [Header("On repaired (optional)")]
@@ -41,7 +43,7 @@ namespace Starfall.Devices
         public bool IsRepaired => State == DeviceState.Repaired;
         public string DeviceName => deviceName;
 
-        public string Prompt => $"Repair {deviceName}";
+        public string Prompt => $"{actionVerb} {deviceName}";
         public bool CanInteract => !IsRepaired && questionPanel != null && !questionPanel.IsOpen;
 
         private void Awake()
@@ -56,7 +58,7 @@ namespace Starfall.Devices
         public void Interact()
         {
             if (!CanInteract) return;
-            questionPanel.Open($"REPAIR: {deviceName.ToUpperInvariant()}", questions, Repair);
+            questionPanel.Open($"{actionVerb.ToUpperInvariant()}: {deviceName.ToUpperInvariant()}", questions, Repair);
         }
 
         private void Repair()

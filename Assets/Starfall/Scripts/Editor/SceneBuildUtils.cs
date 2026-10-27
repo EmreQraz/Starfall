@@ -180,6 +180,7 @@ namespace Starfall.EditorTools
                 MenuSceneBuilder.MAIN_MENU_PATH,
                 MenuSceneBuilder.INTRO_PATH,
                 Level1SceneBuilder.SCENE_PATH,
+                TransitSceneBuilder.SCENE_PATH,
                 PlaceholderSceneBuilder.LEVEL2_PATH,
             }.Where(p => AssetDatabase.LoadAssetAtPath<SceneAsset>(p) != null).ToArray();
 
