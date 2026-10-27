@@ -45,6 +45,9 @@ namespace Starfall.EditorTools
                     new Color(1f, 0.35f, 0.1f) * 6f),
             };
 
+            // Save first: reimporting the models reloads the remapped materials from disk, which would
+            // drop unsaved edits such as the _EMISSION keyword.
+            AssetDatabase.SaveAssets();
             foreach (var model in new[] { "SM_RingedPlanet", "SM_Moon", "SM_Asteroid_01", "SM_Asteroid_02",
                          "SM_Asteroid_03", "SM_Asteroid_04", "SM_StationFragment" })
             {

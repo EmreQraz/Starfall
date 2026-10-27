@@ -45,18 +45,23 @@ namespace Starfall.EditorTools
         private static void SetupMaterials()
         {
             System.IO.Directory.CreateDirectory(MATERIALS);
-            RemapModelMaterials(MODELS + "SM_Alien.fbx", new Dictionary<string, Material>
+            var alien = new Dictionary<string, Material>
             {
                 ["M_AlienSkin"] = LitMaterial("M_AlienSkin", new Color(0.2f, 0.27f, 0.14f), 0.45f, 0f),
                 ["M_AlienCarapace"] = LitMaterial("M_AlienCarapace", new Color(0.16f, 0.07f, 0.22f), 0.7f, 0.2f),
                 ["M_AlienGlow"] = Emissive(LitMaterial("M_AlienGlow", ALIEN_GLOW, 0.5f, 0f), ALIEN_GLOW * 6f),
-            });
-            RemapModelMaterials(MODELS + "SM_Blaster.fbx", new Dictionary<string, Material>
+            };
+            var blaster = new Dictionary<string, Material>
             {
                 ["M_GunBody"] = LitMaterial("M_GunBody", new Color(0.16f, 0.17f, 0.2f), 0.65f, 0.8f),
                 ["M_GunAccent"] = LitMaterial("M_GunAccent", new Color(1f, 0.45f, 0.06f), 0.5f, 0.2f),
                 ["M_GunGlow"] = Emissive(LitMaterial("M_GunGlow", BLASTER_CYAN, 0.6f, 0f), BLASTER_CYAN * 6f),
-            });
+            };
+            // Save first: reimporting the models reloads the remapped materials from disk, which would
+            // drop unsaved edits such as the _EMISSION keyword.
+            AssetDatabase.SaveAssets();
+            RemapModelMaterials(MODELS + "SM_Alien.fbx", alien);
+            RemapModelMaterials(MODELS + "SM_Blaster.fbx", blaster);
         }
 
         // ---------- Alien ----------
@@ -236,8 +241,9 @@ namespace Starfall.EditorTools
             body.interpolation = RigidbodyInterpolation.Interpolate;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
-            var glow = CreatePointLight("Glow", root.transform, position + Vector3.up * 0.2f, BLASTER_CYAN, 1.5f, 2.5f);
-            glow.transform.localPosition = Vector3.up * 0.2f;
+            // Soft and a little above the gun: right at floor level a brighter light blows out the floor through bloom.
+            var glow = CreatePointLight("Glow", root.transform, position, BLASTER_CYAN, 0.35f, 1.8f);
+            glow.transform.localPosition = Vector3.up * 0.4f;
             var audio = CreateAudioSource(root, spatial: true);
 
             var pickup = root.AddComponent<WeaponPickup>();
